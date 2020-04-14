@@ -68,7 +68,7 @@ def rfc_cv(n_estimators, max_depth, min_samples_split, min_samples_leaf, data, t
         min_samples_split=min_samples_split, 
         bootstrap=False,
         min_samples_leaf=min_samples_leaf,
-        random_state=np.random.randint(1,654321)
+        random_state=np.random.randint(1,654321), n_jobs=-1
     )
     cval = cross_val_score(estimator, data, targets,
                            scoring='neg_log_loss', cv=2)
