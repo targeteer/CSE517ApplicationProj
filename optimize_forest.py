@@ -103,7 +103,7 @@ def optimize_rfc(data, targets):
             "min_samples_leaf": (2, 15),
 #             "max_features": (0.1, 0.999),
         },
-        random_state=1234,
+        random_state=np.random.randint(1,654321),
         verbose=2
     )
 
