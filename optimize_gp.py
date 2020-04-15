@@ -4,7 +4,8 @@ import math
 import numpy as np
 import pandas as pd
 from bayes_opt import BayesianOptimization
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.gaussian_process import GaussianProcessClassifier
+from sklearn.gaussian_process.kernels import RBF
 from sklearn.model_selection import train_test_split, StratifiedKFold, RepeatedStratifiedKFold, cross_val_score
 from sklearn.metrics import f1_score, confusion_matrix, matthews_corrcoef, hamming_loss, jaccard_score
 from sklearn.preprocessing import LabelEncoder 
@@ -53,7 +54,7 @@ def get_data():
     
     
 
-def rfc_cv(n_estimators, max_depth, max_features, data, targets):
+def gp_cv(C, gamma, data, targets):
     """Random Forest cross validation.
     This function will instantiate a random forest classifier with parameters
     n_estimators, min_samples_split, and max_features. Combined with data and
@@ -62,45 +63,51 @@ def rfc_cv(n_estimators, max_depth, max_features, data, targets):
     Our goal is to find combinations of n_estimators, min_samples_split, and
     max_features that minimzes the log loss.
     """
-    estimator = RandomForestClassifier(
-        n_estimators=n_estimators, 
-        max_depth=max_depth,  
-        bootstrap=False,
-        max_features=max_features,
-        random_state=np.random.randint(1,654321),
-        n_jobs=-1
-    )
+    # feature_map_nystroem = Nystroem(gamma=gamma,
+    #                                 random_state=1,
+    #                                 n_components=300)
+    # data_transformed = feature_map_nystroem.fit_transform(data)
+
+    # rbf_feature = RBFSampler(gamma=gamma)
+
+    # data_transformed = rbf_feature.fit_transform(data)
+
+    # estimator = svm.LinearSVC(
+    #     dual=False,
+    #     C=C,
+    # )
+    # estimator = linear_model.SGDClassifier(
+    #     max_iter=1000, 
+    #     tol=1e-3
+    # )
+    estimator = GaussianProcessClassifier(C * RBF(gamma))
+
     cval = cross_val_score(estimator, data, targets,
-                           scoring='accuracy', cv=3)
+                           scoring='accuracy', cv=4)
     return cval.mean()
 
 
 
-def optimize_rfc(data, targets):
-    """Apply Bayesian Optimization to Random Forest parameters."""
-    def rfc_crossval(exp_n_estimators, exp_max_depth, max_features):
-        """Wrapper of RandomForest cross validation.
-        Notice how we ensure n_estimators and min_samples_split are casted
-        to integer before we pass them along. Moreover, to avoid max_features
-        taking values outside the (0, 1) range, we also ensure it is capped
-        accordingly.
-        """
-        n_estimators = 10 ** exp_n_estimators
-        max_depth = 10 ** exp_max_depth
-        return rfc_cv(
-            n_estimators=int(n_estimators),
-            max_depth=int(max_depth),
-            max_features=max(min(max_features, 0.999), 1e-3),
+def optimize_gp(data, targets):
+    """Apply Bayesian Optimization to SVC parameters."""
+    def gp_crossval(expC, expGamma):#, expComponents):
+        C = 10 ** expC
+        gamma = 10 ** expGamma
+        # n_components = int(10 ** expComponents)
+        return gp_cv(
+            C=C,
+            gamma=gamma,
+            # n_components=n_components,
             data=data,
             targets=targets,
         )
 
     optimizer = BayesianOptimization(
-        f=rfc_crossval,
+        f=gp_crossval,
         pbounds={
-            "exp_n_estimators": (2.5, 3.5),
-            "exp_max_depth": (1, 3),
-            "max_features": (0.1, 0.999),
+            'expC': (-4, 3),
+            'expGamma': (-4, 3),
+            # 'expComponents': (-1, 3)
         },
         random_state=np.random.randint(1,654321),
         verbose=2
@@ -109,14 +116,9 @@ def optimize_rfc(data, targets):
     # logger = JSONLogger(path="./logs.json")
     # optimizer.subscribe(Events.OPTIMIZATION_STEP, logger)
     
-    good_n_estimators = [np.log10]
-    good_max_depths = []
-    good_max_features = []
-
-
     optimizer.maximize(
-        init_points=100,
-        n_iter=900,
+        init_points=20,
+        n_iter=80,
         acq='ucb',
         kappa=2,
         # acq="ei", 
@@ -134,8 +136,8 @@ if __name__ == "__main__":
 #     print(Colours.yellow("--- Optimizing SVM ---"))
 #     optimize_svc(data, targets)
 
-    print(Colours.green("--- Optimizing Random Forest ---"))
-    optimize_rfc(train_x, train_y)
+    print(Colours.green("--- Optimizing Gaussian Process ---"))
+    optimize_gp(train_x, train_y)
     
     
 

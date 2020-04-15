@@ -3,8 +3,7 @@ import sys
 import math
 import numpy as np
 import pandas as pd
-from bayes_opt import BayesianOptimization
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.naive_bayes import GaussianNB
 from sklearn.model_selection import train_test_split, StratifiedKFold, RepeatedStratifiedKFold, cross_val_score
 from sklearn.metrics import f1_score, confusion_matrix, matthews_corrcoef, hamming_loss, jaccard_score
 from sklearn.preprocessing import LabelEncoder 
@@ -53,89 +52,23 @@ def get_data():
     
     
 
-def rfc_cv(n_estimators, max_depth, max_features, data, targets):
-    """Random Forest cross validation.
-    This function will instantiate a random forest classifier with parameters
-    n_estimators, min_samples_split, and max_features. Combined with data and
-    targets this will in turn be used to perform cross validation. The result
-    of cross validation is returned.
-    Our goal is to find combinations of n_estimators, min_samples_split, and
-    max_features that minimzes the log loss.
-    """
-    estimator = RandomForestClassifier(
-        n_estimators=n_estimators, 
-        max_depth=max_depth,  
-        bootstrap=False,
-        max_features=max_features,
-        random_state=np.random.randint(1,654321),
-        n_jobs=-1
-    )
-    cval = cross_val_score(estimator, data, targets,
-                           scoring='accuracy', cv=3)
-    return cval.mean()
-
-
-
-def optimize_rfc(data, targets):
-    """Apply Bayesian Optimization to Random Forest parameters."""
-    def rfc_crossval(exp_n_estimators, exp_max_depth, max_features):
-        """Wrapper of RandomForest cross validation.
-        Notice how we ensure n_estimators and min_samples_split are casted
-        to integer before we pass them along. Moreover, to avoid max_features
-        taking values outside the (0, 1) range, we also ensure it is capped
-        accordingly.
-        """
-        n_estimators = 10 ** exp_n_estimators
-        max_depth = 10 ** exp_max_depth
-        return rfc_cv(
-            n_estimators=int(n_estimators),
-            max_depth=int(max_depth),
-            max_features=max(min(max_features, 0.999), 1e-3),
-            data=data,
-            targets=targets,
-        )
-
-    optimizer = BayesianOptimization(
-        f=rfc_crossval,
-        pbounds={
-            "exp_n_estimators": (2.5, 3.5),
-            "exp_max_depth": (1, 3),
-            "max_features": (0.1, 0.999),
-        },
-        random_state=np.random.randint(1,654321),
-        verbose=2
-    )
-
-    # logger = JSONLogger(path="./logs.json")
-    # optimizer.subscribe(Events.OPTIMIZATION_STEP, logger)
-    
-    good_n_estimators = [np.log10]
-    good_max_depths = []
-    good_max_features = []
-
-
-    optimizer.maximize(
-        init_points=100,
-        n_iter=900,
-        acq='ucb',
-        kappa=2,
-        # acq="ei", 
-        # xi=1.e-04,
-        # acq="poi", 
-        # xi=1.e-04
-    )
-
-    print("Final result:\n", optimizer.max)
-
-
 if __name__ == "__main__":
     train_x, train_y, test_x = get_data()
 
 #     print(Colours.yellow("--- Optimizing SVM ---"))
 #     optimize_svc(data, targets)
 
-    print(Colours.green("--- Optimizing Random Forest ---"))
-    optimize_rfc(train_x, train_y)
+    print(Colours.green("--- Optimizing GaussianNB Classifier ---"))
+    
+    skf = RepeatedStratifiedKFold(n_splits=10, n_repeats=10)
+
+    estimator = GaussianNB()
+
+    cval = cross_val_score(estimator, train_x, train_y,
+                           scoring='accuracy', cv=skf)
+
+    print(f'CV Accuracy Score : {cval.mean()}')
+
     
     
 
