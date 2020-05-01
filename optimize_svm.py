@@ -118,10 +118,10 @@ def optimize_svm(data, targets):
     optimizer.maximize(
         init_points=20,
         n_iter=80,
-        acq='ucb',
-        kappa=2,
-        # acq="ei", 
-        # xi=1.e-04,
+        # acq='ucb',
+        # kappa=2,
+        acq="ei", 
+        xi=1.e-02,
         # acq="poi", 
         # xi=1.e-04
     )
